@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Assistant - LiveKit</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .voice-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+        .voice-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .voice-header h1 {
+            color: #667eea;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .voice-header p {
+            color: #6c757d;
+            font-size: 0.95rem;
+        }
+        .voice-controls {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .mic-button {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 60px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        .mic-button:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+        .mic-button:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+        .mic-button.recording {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            animation: pulse 1.5s infinite;
+        }
+        .mic-button.processing {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .mic-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .status-message {
+            text-align: center;
+            margin: 20px 0;
+            min-height: 30px;
+            font-weight: 500;
+        }
+        .status-message.info { color: #0dcaf0; }
+        .status-message.success { color: #198754; }
+        .status-message.error { color: #dc3545; }
+        .status-timer {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-top: -10px;
+            min-height: 20px;
+        }
+        .transcript-box {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            min-height: 100px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .results-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 16px;
+            border: 1px solid #dee2e6;
+        }
+        .browser-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 16px;
+            border: 1px solid #dee2e6;
+        }
+        .browser-frame {
+            display: none;
+        }
+        .browser-open-btn {
+            display: inline-block;
+            padding: 8px 12px;
+            background: #667eea;
+            color: #fff;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        .browser-link {
+            font-size: 0.85rem;
+            color: #2563eb;
+            text-decoration: none;
+        }
+        .results-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .results-badge {
+            background: #e0e7ff;
+            color: #3730a3;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .result-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        .result-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 6px;
+        }
+        .result-link {
+            font-size: 0.85rem;
+            color: #2563eb;
+            text-decoration: none;
+        }
+        .result-snippet {
+            margin-top: 8px;
+            color: #4b5563;
+            font-size: 0.9rem;
+        }
+        .transcript-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .transcript-item.user {
+            background: #e3f2fd;
+            text-align: right;
+        }
+        .transcript-item.agent {
+            background: #f3e5f5;
+            text-align: left;
+        }
+        .transcript-label {
+            font-weight: bold;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        .user .transcript-label { color: #1976d2; }
+        .agent .transcript-label { color: #7b1fa2; }
+        .livekit-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: #f1f3f5;
+            color: #6c757d;
+        }
+        .livekit-status.online {
+            background: #e6f4ea;
+            color: #198754;
+        }
+        .livekit-status.connecting {
+            background: #fff3cd;
+            color: #b58100;
+        }
+        .livekit-status.offline {
+            background: #f8d7da;
+            color: #dc3545;
+        }
+        audio {
+            width: 100%;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="voice-container">
+        <div class="voice-header">
+            <h1><i class="fas fa-robot"></i> Voice Assistant</h1>
+            <p>Real-time WebRTC voice assistant (Cartesia STT/TTS + Claude)</p>
+            <div class="livekit-status offline" id="webrtcStatus">
+                <i class="fas fa-circle"></i>
+                <span>WebRTC: disconnected</span>
+            </div>
+        </div>
+
+        <div class="status-message" id="statusMessage"></div>
+        <div class="status-timer" id="statusTimer"></div>
+
+        <div class="voice-controls">
+            <button class="mic-button" id="micButton" disabled>
+                <i class="fas fa-microphone" id="micIcon"></i>
+            </button>
+            <div style="margin-top: 15px;">
+                <small id="micLabel" class="text-muted">Click to connect</small>
+            </div>
+        </div>
+
+        <div class="transcript-box" id="transcriptBox">
+            <p class="text-muted text-center">Your conversation will appear here...</p>
+        </div>
+
+        <audio id="audio" controls></audio>
+        <div class="debug-panel" id="debugPanel">
+            <div class="debug-title">Debug</div>
+            <pre id="debugText">Waiting for response...</pre>
+        </div>
+        <div class="results-panel" id="resultsPanel" style="display:none;">
+            <div class="results-header">
+                <div class="debug-title">Search Results</div>
+                <div class="results-badge" id="resultsBadge">0</div>
+            </div>
+            <div id="resultsList"></div>
+        </div>
+        <div class="browser-panel" id="browserPanel">
+            <div class="results-header">
+                <div class="debug-title">Live Search</div>
+                <a class="browser-link" id="browserLink" href="#" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+            </div>
+            <div style="margin-top: 8px;">
+                <a class="browser-open-btn" id="browserOpenBtn" href="#" target="_blank" rel="noopener noreferrer">
+                    Open Live Search
+                </a>
+            </div>
+            <div id="browserHint" style="margin-top: 8px; color: #6c757d; font-size: 0.85rem;">
+                Run a search to activate the live session.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const micButton = document.getElementById('micButton');
+        const micIcon = document.getElementById('micIcon');
+        const micLabel = document.getElementById('micLabel');
+        const statusMessage = document.getElementById('statusMessage');
+        const transcriptBox = document.getElementById('transcriptBox');
+        const audioEl = document.getElementById('audio');
+        const debugText = document.getElementById('debugText');
+        const resultsPanel = document.getElementById('resultsPanel');
+        const resultsList = document.getElementById('resultsList');
+        const resultsBadge = document.getElementById('resultsBadge');
+        const browserPanel = document.getElementById('browserPanel');
+        const browserLink = document.getElementById('browserLink');
+        const browserOpenBtn = document.getElementById('browserOpenBtn');
+        const browserHint = document.getElementById('browserHint');
+        const webrtcStatus = document.getElementById('webrtcStatus');
+        const statusTimer = document.getElementById('statusTimer');
+
+        let pc = null;
+        let dataChannel = null;
+        let localStream = null;
+        let isRecording = false;
+        let isProcessing = false;
+        let processingOsc = null;
+        let processingCtx = null;
+        let processingAudio = null;
+        let lastAnnouncedPhase = null;
+        let timerInterval = null;
+        let timerStart = null;
+        let hasGreeted = false;
+
+        function stopPlayback() {
+            if (!audioEl.src) return;
+            try {
+                audioEl.pause();
+                audioEl.currentTime = 0;
+            } catch (_) {}
+        }
+
+        function announce(message) {
+            if (!('speechSynthesis' in window)) return;
+            try {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(message);
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                utterance.volume = 0.9;
+                window.speechSynthesis.speak(utterance);
+            } catch (_) {}
+        }
+
+        function stopAnnouncements() {
+            if (!('speechSynthesis' in window)) return;
+            try {
+                window.speechSynthesis.cancel();
+            } catch (_) {}
+        }
+
+        function startProcessingSound() {
+            try {
+                if (!processingAudio) {
+                    processingAudio = new Audio('/call-center/static/audio/processing.mp3');
+                    processingAudio.loop = true;
+                    processingAudio.volume = 0.2;
+                    processingAudio.addEventListener('error', () => {
+                        processingAudio = null;
+                    }, { once: true });
+                }
+                if (processingAudio) {
+                    processingAudio.play().catch(() => {
+                        // fallback to oscillator
+                    });
+                    return;
+                }
+                if (!processingCtx) {
+                    processingCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (processingCtx.state === 'suspended') {
+                    processingCtx.resume();
+                }
+                if (processingOsc) return;
+                const osc = processingCtx.createOscillator();
+                const gain = processingCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 440;
+                gain.gain.value = 0.02;
+                osc.connect(gain);
+                gain.connect(processingCtx.destination);
+                osc.start();
+                processingOsc = { osc, gain };
+            } catch (_) {}
+        }
+
+        function stopProcessingSound() {
+            if (processingAudio) {
+                try {
+                    processingAudio.pause();
+                    processingAudio.currentTime = 0;
+                } catch (_) {}
+            }
+            if (!processingOsc) return;
+            try {
+                processingOsc.osc.stop();
+                processingOsc.osc.disconnect();
+                processingOsc.gain.disconnect();
+            } catch (_) {}
+            processingOsc = null;
+        }
+
+        function startTimer() {
+            if (timerInterval) return;
+            timerStart = Date.now();
+            statusTimer.textContent = 'Elapsed: 0s';
+            timerInterval = setInterval(() => {
+                const seconds = Math.floor((Date.now() - timerStart) / 1000);
+                statusTimer.textContent = `Elapsed: ${seconds}s`;
+            }, 500);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            timerStart = null;
+            statusTimer.textContent = '';
+        }
+
+        function setStatus(message, type = 'info') {
+            statusMessage.textContent = message;
+            statusMessage.className = `status-message ${type}`;
+            const lower = String(message || '').toLowerCase();
+            if (lower.includes('transcribing') && lastAnnouncedPhase !== 'transcribing') {
+                lastAnnouncedPhase = 'transcribing';
+                announce('Please wait while I transcribe your message.');
+            }
+            if ((lower.includes('processing') || lower.includes('searching')) && lastAnnouncedPhase !== 'processing') {
+                lastAnnouncedPhase = 'processing';
+                announce('Please wait while I check and search.');
+            }
+            if (lower.includes('transcribing') || lower.includes('processing') || lower.includes('searching')) {
+                startTimer();
+            } else {
+                stopTimer();
+            }
+        }
+
+        function setDebug(info) {
+            debugText.textContent = JSON.stringify(info, null, 2);
+        }
+
+        function setWebrtcStatus(state, message) {
+            webrtcStatus.classList.remove('online', 'connecting', 'offline');
+            webrtcStatus.classList.add(state);
+            const label = webrtcStatus.querySelector('span');
+            if (label) label.textContent = message;
+        }
+
+        function addTranscript(role, text) {
+            if (!text) return;
+            if (transcriptBox.querySelector('.text-muted')) {
+                transcriptBox.innerHTML = '';
+            }
+            const item = document.createElement('div');
+            item.className = `transcript-item ${role}`;
+            item.innerHTML = `
+                <div class="transcript-label">${role === 'user' ? 'You' : 'Assistant'}</div>
+                <div>${text}</div>
+            `;
+            transcriptBox.appendChild(item);
+            transcriptBox.scrollTop = transcriptBox.scrollHeight;
+        }
+
+        async function connectWebRTC() {
+            try {
+                setWebrtcStatus('connecting', 'WebRTC: connecting');
+                setStatus('Connecting WebRTC...', 'info');
+
+                pc = new RTCPeerConnection();
+                dataChannel = pc.createDataChannel('assistant');
+
+                dataChannel.onmessage = (event) => {
+                    try {
+                        const payload = JSON.parse(event.data);
+                        if (payload.type === 'status') {
+                            setStatus(payload.status, 'info');
+                        } else if (payload.type === 'assistant_response') {
+                            if (payload.user_text) {
+                                addTranscript('user', payload.user_text);
+                            }
+                            if (!payload.search_results || payload.search_results.length === 0) {
+                                addTranscript('agent', payload.text || '');
+                            }
+                            setStatus('Response ready.', 'success');
+                            if (payload.audio_url) {
+                                audioEl.src = payload.audio_url;
+                                audioEl.load();
+                                audioEl.play().catch(() => {
+                                    setStatus('Audio playback blocked. Click play.', 'error');
+                                });
+                            }
+                            if (payload.search_results && payload.search_results.length > 0) {
+                                resultsPanel.style.display = 'block';
+                                resultsBadge.textContent = `${payload.search_results.length} results`;
+                                resultsList.innerHTML = payload.search_results.map((item) => `
+                                    <div class="result-card">
+                                        <div class="result-title">${item.title || 'Result'}</div>
+                                        ${item.url ? `<a class="result-link" href="${item.url}" target="_blank" rel="noopener noreferrer">${item.url}</a>` : ''}
+                                        ${item.snippet ? `<div class="result-snippet">${item.snippet}</div>` : ''}
+                                    </div>
+                                `).join('');
+                            } else {
+                                resultsPanel.style.display = 'none';
+                                resultsBadge.textContent = '0 results';
+                                resultsList.innerHTML = '';
+                            }
+                            if (payload.live_url) {
+                                browserPanel.style.display = 'block';
+                                browserLink.href = payload.live_url;
+                                browserOpenBtn.href = payload.live_url;
+                                browserHint.style.display = 'none';
+                            } else {
+                                browserLink.href = '#';
+                                browserOpenBtn.href = '#';
+                                browserHint.style.display = 'block';
+                            }
+                            setDebug(payload);
+                            stopProcessingSound();
+                            stopAnnouncements();
+                            stopTimer();
+                            resetMicButton();
+                        } else if (payload.type === 'error') {
+                            setStatus(payload.error || 'Error', 'error');
+                            setDebug(payload);
+                            stopProcessingSound();
+                            stopAnnouncements();
+                            stopTimer();
+                            resetMicButton();
+                        }
+                    } catch {
+                        setStatus('Invalid response from server.', 'error');
+                    }
+                };
+
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+
+                const res = await fetch('/api/webrtc/offer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sdp: offer.sdp, type: offer.type })
+                });
+                const answer = await res.json();
+                await pc.setRemoteDescription(answer);
+
+                setWebrtcStatus('online', 'WebRTC: connected');
+                micButton.disabled = false;
+                micLabel.textContent = 'Click to speak';
+                setStatus('Connected. Click to speak.', 'success');
+                if (!hasGreeted) {
+                    hasGreeted = true;
+                    announce('Hi, I am here and ready to help. You can start speaking when you are ready.');
+                }
+            } catch (err) {
+                setWebrtcStatus('offline', 'WebRTC: failed');
+                setStatus('Failed to connect WebRTC.', 'error');
+            }
+        }
+
+        function startTalk() {
+            if (dataChannel && dataChannel.readyState === 'open') {
+                stopPlayback();
+                dataChannel.send('start');
+                isRecording = true;
+                micButton.classList.add('recording');
+                micIcon.className = 'fas fa-stop';
+                micLabel.textContent = 'Recording... Click to stop';
+                setStatus('Recording...', 'info');
+            }
+        }
+
+        function stopTalk() {
+            if (dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send('stop');
+                isRecording = false;
+                isProcessing = true;
+                micButton.classList.remove('recording');
+                micButton.classList.add('processing');
+                micIcon.className = 'fas fa-spinner fa-spin';
+                micLabel.textContent = 'Processing...';
+                setStatus('Transcribing...', 'info');
+                startProcessingSound();
+            }
+        }
+
+        function resetMicButton() {
+            isRecording = false;
+            isProcessing = false;
+            micButton.classList.remove('recording', 'processing');
+            micIcon.className = 'fas fa-microphone';
+            micLabel.textContent = 'Click to speak';
+            stopProcessingSound();
+            stopAnnouncements();
+            lastAnnouncedPhase = null;
+            stopTimer();
+        }
+
+        function toggleRecording() {
+            if (!pc) {
+                connectWebRTC();
+                return;
+            }
+            if (isProcessing) return;
+            if (!isRecording) {
+                stopPlayback();
+                startTalk();
+            } else {
+                stopTalk();
+            }
+        }
+
+        audioEl.addEventListener('error', () => {
+            setStatus('Audio element error. Check audio URL.', 'error');
+        });
+
+        micButton.addEventListener('click', toggleRecording);
+        document.addEventListener('DOMContentLoaded', () => {
+            connectWebRTC();
+            document.addEventListener('click', () => {
+                if (audioEl.src) {
+                    audioEl.play().catch(() => {});
+                }
+            }, { once: true });
+        });
+    </script>
+</body>
+</html>

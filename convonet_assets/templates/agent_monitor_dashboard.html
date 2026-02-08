@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Agent Monitor - Convonet</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .stat-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .stat-icon {
+            font-size: 20px;
+        }
+        
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .stat-card.claude .stat-value { color: #d97706; }
+        .stat-card.gemini .stat-value { color: #059669; }
+        .stat-card.openai .stat-value { color: #2563eb; }
+        .stat-card.total .stat-value { color: #7c3aed; }
+        
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+        
+        .chart-container h2 {
+            color: #333;
+            margin-bottom: 0;
+            white-space: nowrap;
+        }
+        
+        .chart-wrapper {
+            width: 200px;
+            height: 200px;
+            flex-shrink: 0;
+        }
+        
+        .interactions-list {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .interactions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .interactions-header h2 {
+            color: #333;
+        }
+        
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .refresh-btn {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        .refresh-btn:hover {
+            background: #5568d3;
+        }
+        
+        .interaction-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .interaction-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.1);
+        }
+        
+        .interaction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+        
+        .interaction-id {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #666;
+            background: #f3f4f6;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        
+        .interaction-time {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .interaction-body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .interaction-section {
+            flex: 1;
+        }
+        
+        .interaction-section h4 {
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .interaction-section p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+            background: #f9fafb;
+            padding: 12px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .interaction-meta {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        
+        .meta-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: #f3f4f6;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .meta-badge.provider-claude { background: #fef3c7; color: #d97706; }
+        .meta-badge.provider-gemini { background: #d1fae5; color: #059669; }
+        .meta-badge.provider-openai { background: #dbeafe; color: #2563eb; }
+        
+        .meta-badge.status-success { background: #d1fae5; color: #059669; }
+        .meta-badge.status-failed { background: #fee2e2; color: #dc2626; }
+        .meta-badge.status-timeout { background: #fef3c7; color: #d97706; }
+        
+        .tool-calls-badge {
+            background: #ede9fe;
+            color: #7c3aed;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .interaction-details {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .tool-call-item {
+            background: #f9fafb;
+            border-left: 3px solid #667eea;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        
+        .tool-call-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 6px;
+        }
+        
+        .tool-call-args {
+            font-size: 12px;
+            color: #666;
+            font-family: 'Courier New', monospace;
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 6px;
+            overflow-x: auto;
+        }
+        
+        .tool-call-result {
+            font-size: 12px;
+            color: #059669;
+            margin-top: 6px;
+        }
+        
+        .tool-call-error {
+            font-size: 12px;
+            color: #dc2626;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 LLM Agent Monitor</h1>
+            <p>Real-time monitoring of LLM agent interactions, tool calls, and performance</p>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card total">
+                <div class="stat-label">
+                    <span class="stat-icon">📊</span>Total Interactions
+                </div>
+                <div class="stat-value" id="statTotal">0</div>
+            </div>
+            <div class="stat-card claude">
+                <div class="stat-label">
+                    <span class="stat-icon">🤖</span>Claude
+                </div>
+                <div class="stat-value" id="statClaude">0</div>
+            </div>
+            <div class="stat-card gemini">
+                <div class="stat-label">
+                    <span class="stat-icon">✨</span>Gemini
+                </div>
+                <div class="stat-value" id="statGemini">0</div>
+            </div>
+            <div class="stat-card openai">
+                <div class="stat-label">
+                    <span class="stat-icon">⚡</span>OpenAI
+                </div>
+                <div class="stat-value" id="statOpenAI">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">
+                    <span class="stat-icon">🔧</span>Total Tool Calls
+                </div>
+                <div class="stat-value" id="statToolCalls">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">
+                    <span class="stat-icon">⏱️</span>Avg Duration
+                </div>
+                <div class="stat-value" id="statAvgDuration">0ms</div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <h2>Provider Distribution</h2>
+            <div class="chart-wrapper">
+                <canvas id="providerChart"></canvas>
+            </div>
+            <div id="lastRefresh" style="color: #999; font-size: 12px;">Auto-refresh: every 5 minutes</div>
+        </div>
+        
+        <div class="interactions-list">
+            <div class="interactions-header">
+                <h2>Recent Interactions</h2>
+                <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="color: #666; font-size: 14px;">Provider:</span>
+                        <div class="filter-buttons" id="providerFilters">
+                            <button class="filter-btn active" onclick="filterByProvider('all')">All</button>
+                            <button class="filter-btn" onclick="filterByProvider('claude')">🤖 Claude</button>
+                            <button class="filter-btn" onclick="filterByProvider('gemini')">✨ Gemini</button>
+                            <button class="filter-btn" onclick="filterByProvider('openai')">⚡ OpenAI</button>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="color: #666; font-size: 14px;">Domain:</span>
+                        <div class="filter-buttons" id="domainFilters">
+                            <button class="filter-btn active" onclick="filterByDomain('all')">All</button>
+                            <button class="filter-btn" onclick="filterByDomain('todo')" style="border-color: #10b981;">📝 Productivity</button>
+                            <button class="filter-btn" onclick="filterByDomain('mortgage')" style="border-color: #f59e0b;">🏠 Mortgage</button>
+                            <button class="filter-btn" onclick="filterByDomain('healthcare')" style="border-color: #ef4444;">🏥 Healthcare</button>
+                        </div>
+                    </div>
+                    <button class="refresh-btn" onclick="manualRefresh()">🔄 Refresh</button>
+                </div>
+            </div>
+            <div id="interactionsList" class="loading">Loading interactions...</div>
+        </div>
+    </div>
+    
+    <script>
+        let providerChart = null;
+        let currentProviderFilter = 'all';
+        let currentDomainFilter = 'all';
+        let selectedInteractionId = null;
+        
+        // Load data on page load
+        const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+            loadInteractions();
+            updateLastRefreshTime();
+            setInterval(() => {
+                loadStats();
+                loadInteractions();
+                updateLastRefreshTime();
+            }, AUTO_REFRESH_INTERVAL);
+        });
+        
+        function updateLastRefreshTime() {
+            const now = new Date().toLocaleTimeString();
+            document.getElementById('lastRefresh').textContent = `Last refresh: ${now} (auto-refresh: every 5 min)`;
+        }
+        
+        function manualRefresh() {
+            loadStats();
+            loadInteractions();
+            updateLastRefreshTime();
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch('/agent-monitor/api/stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const stats = data.stats;
+                    document.getElementById('statTotal').textContent = stats.total_interactions;
+                    document.getElementById('statClaude').textContent = stats.by_provider.claude || 0;
+                    document.getElementById('statGemini').textContent = stats.by_provider.gemini || 0;
+                    document.getElementById('statOpenAI').textContent = stats.by_provider.openai || 0;
+                    document.getElementById('statToolCalls').textContent = stats.total_tool_calls;
+                    document.getElementById('statAvgDuration').textContent = Math.round(stats.avg_duration_ms) + 'ms';
+                    
+                    // Update chart
+                    updateProviderChart(stats.by_provider);
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        function updateProviderChart(byProvider) {
+            const ctx = document.getElementById('providerChart').getContext('2d');
+            
+            if (providerChart) {
+                providerChart.destroy();
+            }
+            
+            const labels = Object.keys(byProvider);
+            const values = Object.values(byProvider);
+            const colors = {
+                'claude': '#d97706',
+                'gemini': '#059669',
+                'openai': '#2563eb',
+                'unknown': '#6b7280'
+            };
+            
+            providerChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: labels.map(l => colors[l] || colors['unknown']),
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        
+        async function loadInteractions() {
+            try {
+                let url = '/agent-monitor/api/interactions?limit=50';
+                if (currentProviderFilter !== 'all') {
+                    url += `&provider=${currentProviderFilter}`;
+                }
+                if (currentDomainFilter !== 'all') {
+                    url += `&agent_type=${currentDomainFilter}`;
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayInteractions(data.interactions);
+                } else {
+                    document.getElementById('interactionsList').innerHTML = 
+                        '<div class="loading">Error loading interactions</div>';
+                }
+            } catch (error) {
+                console.error('Error loading interactions:', error);
+                document.getElementById('interactionsList').innerHTML = 
+                    '<div class="loading">Error loading interactions</div>';
+            }
+        }
+        
+        function displayInteractions(interactions) {
+            const container = document.getElementById('interactionsList');
+            
+            if (interactions.length === 0) {
+                container.innerHTML = '<div class="loading">No interactions found</div>';
+                return;
+            }
+            
+            // Domain badge styles
+            const domainStyles = {
+                'todo': { icon: '📝', color: '#10b981', label: 'Productivity' },
+                'mortgage': { icon: '🏠', color: '#f59e0b', label: 'Mortgage' },
+                'healthcare': { icon: '🏥', color: '#ef4444', label: 'Healthcare' }
+            };
+            
+            container.innerHTML = interactions.map(interaction => {
+                const toolCallsCount = interaction.tool_calls ? interaction.tool_calls.length : 0;
+                const provider = interaction.provider || 'unknown';
+                const status = interaction.status || 'success';
+                const agentType = interaction.metadata?.agent_type || 'todo';
+                const domainStyle = domainStyles[agentType] || domainStyles['todo'];
+                
+                return `
+                    <div class="interaction-item" onclick="toggleInteractionDetails('${interaction.request_id}')">
+                        <div class="interaction-header">
+                            <div>
+                                <div class="interaction-id">${interaction.request_id}</div>
+                                <div class="interaction-time">${new Date(interaction.datetime).toLocaleString()}</div>
+                            </div>
+                            <div class="interaction-meta">
+                                <span class="meta-badge" style="background: ${domainStyle.color}20; color: ${domainStyle.color}; border: 1px solid ${domainStyle.color}40;">${domainStyle.icon} ${domainStyle.label}</span>
+                                <span class="meta-badge provider-${provider}">${provider.toUpperCase()}</span>
+                                <span class="meta-badge status-${status}">${status.toUpperCase()}</span>
+                                ${interaction.model ? `<span class="meta-badge">${interaction.model}</span>` : ''}
+                                ${toolCallsCount > 0 ? `<span class="meta-badge tool-calls-badge">${toolCallsCount} tools</span>` : ''}
+                                ${interaction.duration_ms ? `<span class="meta-badge">${Math.round(interaction.duration_ms)}ms</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="interaction-body">
+                            <div class="interaction-section">
+                                <h4>User Prompt</h4>
+                                <p>${escapeHtml(interaction.user_prompt || 'N/A')}</p>
+                            </div>
+                            <div class="interaction-section">
+                                <h4>Agent Response</h4>
+                                <p>${escapeHtml(interaction.agent_response || 'N/A')}</p>
+                            </div>
+                        </div>
+                        <div id="details-${interaction.request_id}" class="interaction-details" style="display: none;">
+                            ${toolCallsCount > 0 ? `
+                                <h4 style="margin-bottom: 15px;">Tool Calls (${toolCallsCount})</h4>
+                                ${interaction.tool_calls.map(tc => `
+                                    <div class="tool-call-item">
+                                        <div class="tool-call-name">${tc.tool_name}</div>
+                                        <div class="tool-call-args">${JSON.stringify(tc.arguments, null, 2)}</div>
+                                        ${tc.result ? `<div class="tool-call-result">✅ Result: ${escapeHtml(JSON.stringify(tc.result).substring(0, 200))}</div>` : ''}
+                                        ${tc.error ? `<div class="tool-call-error">❌ Error: ${escapeHtml(tc.error)}</div>` : ''}
+                                        ${tc.duration_ms ? `<div style="font-size: 11px; color: #999; margin-top: 4px;">Duration: ${Math.round(tc.duration_ms)}ms</div>` : ''}
+                                    </div>
+                                `).join('')}
+                            ` : '<p style="color: #999;">No tool calls</p>'}
+                            ${interaction.error ? `<div style="color: #dc2626; margin-top: 15px;"><strong>Error:</strong> ${escapeHtml(interaction.error)}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function toggleInteractionDetails(requestId) {
+            const details = document.getElementById(`details-${requestId}`);
+            if (details.style.display === 'none') {
+                details.style.display = 'block';
+            } else {
+                details.style.display = 'none';
+            }
+        }
+        
+        function filterByProvider(provider) {
+            currentProviderFilter = provider;
+            
+            // Update button states for provider filters only
+            document.querySelectorAll('#providerFilters .filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            loadInteractions();
+        }
+        
+        function filterByDomain(domain) {
+            currentDomainFilter = domain;
+            
+            // Update button states for domain filters only
+            document.querySelectorAll('#domainFilters .filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            loadInteractions();
+        }
+        
+        // Legacy function for backwards compatibility
+        function filterInteractions(provider) {
+            filterByProvider(provider);
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
+

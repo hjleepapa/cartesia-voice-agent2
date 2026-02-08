@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: cartesia-voice-agent
+Version: 0.1.0
+Summary: Open-source Cartesia + Claude + Notion MCP voice agent scaffold
+Requires-Python: >=3.10
+Requires-Dist: anthropic>=0.35.0
+Requires-Dist: aiortc>=1.5.0
+Requires-Dist: cartesia>=2.0.0
+Requires-Dist: flask>=3.0.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: mcp>=1.1.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: psycopg2-binary
+Requires-Dist: SQLAlchemy>=2.0.0
+Requires-Dist: pydantic>=2.7.0
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: rich>=13.7.0

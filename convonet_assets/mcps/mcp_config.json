@@ -1,0 +1,38 @@
+{
+    "mcpServers": {
+        "db": {
+            "command": "python",
+            "args": [
+                "convonet/mcps/local_servers/db_todo.py"
+            ],
+            "transport": "stdio",
+            "env": {
+                "DB_URI": "${DB_URI}",
+                "PYTHONPATH": "."
+            }
+        },
+        "mortgage": {
+            "command": "python",
+            "args": [
+                "convonet/mcps/local_servers/db_mortgage.py"
+            ],
+            "transport": "stdio",
+            "env": {
+                "DB_URI": "${DB_URI}",
+                "PYTHONPATH": "."
+            }
+        },
+        "healthcare": {
+            "command": "python",
+            "args": [
+                "convonet/mcps/local_servers/db_healthcare_payer.py"
+            ],
+            "transport": "stdio",
+            "env": {
+                "DB_URI": "${DB_URI}",
+                "PYTHONPATH": "."
+            }
+        }
+    }
+}
+
